@@ -1,0 +1,375 @@
+import {
+  ElderlyProfile,
+  Medication,
+  DoctorAppointment,
+  CareCircleMember,
+  AdherenceRecord,
+  EmailLog,
+} from "./types";
+
+export const initialElderlyProfile: ElderlyProfile = {
+  id: "profile-1",
+  name: "Arthur Pendelton",
+  preferredName: "Grandpa Arthur",
+  age: 76,
+  dateOfBirth: "1950-04-12",
+  bloodType: "O+",
+  allergies: ["Penicillin", "Sulfa drugs"],
+  chronicConditions: [
+    "Type 2 Diabetes Mellitus",
+    "Essential Hypertension",
+    "Mild Osteoarthritis",
+  ],
+  primaryDoctor: "Dr. Sarah Chen, MD (Cardiologist)",
+  clinicPhone: "+1 (555) 234-5678",
+  passcodes: {
+    senior: "1234",
+    caretaker: "2468",
+    family: "9999",
+  },
+  emailAlertPreferences: {
+    emailAddress: "family.pendelton@example.com",
+    notifyOnMissedDose: true,
+    notifyOnUpcomingAppointment: true,
+    notifyDailyDigest: true,
+  },
+};
+
+export const initialCareCircle: CareCircleMember[] = [
+  {
+    id: "member-1",
+    name: "Arthur Pendelton",
+    role: "senior",
+    relationship: "Self (Patient)",
+    phone: "+1 (555) 012-3456",
+    email: "arthur.pendelton@example.com",
+    isEmergencyContact: false,
+    avatarColor: "bg-blue-600",
+  },
+  {
+    id: "member-2",
+    name: "Clara Vance, RN",
+    role: "caretaker",
+    relationship: "Visiting Home Caregiver",
+    phone: "+1 (555) 876-5432",
+    email: "nurse.clara@homecare.org",
+    isEmergencyContact: true,
+    avatarColor: "bg-teal-600",
+  },
+  {
+    id: "member-3",
+    name: "David Pendelton",
+    role: "family",
+    relationship: "Son & Primary Guardian",
+    phone: "+1 (555) 432-1098",
+    email: "david.pendelton@gmail.com",
+    isEmergencyContact: true,
+    avatarColor: "bg-purple-600",
+  },
+  {
+    id: "member-4",
+    name: "Emily Pendelton",
+    role: "family",
+    relationship: "Daughter (Out-of-state)",
+    phone: "+1 (555) 654-3210",
+    email: "emily.p@gmail.com",
+    isEmergencyContact: false,
+    avatarColor: "bg-amber-600",
+  },
+];
+
+export const initialMedications: Medication[] = [
+  {
+    id: "med-1",
+    name: "Metformin HCl",
+    dosage: "500 mg",
+    form: "tablet",
+    color: "#3B82F6", // Blue
+    iconShape: "oval",
+    scheduledTimes: ["08:00 AM", "08:00 PM"],
+    frequency: "Twice daily",
+    mealRelation: "with_meal",
+    instructions: "Take with breakfast and dinner. Do not skip meals after taking this.",
+    purpose: "Blood glucose management (Diabetes Type 2)",
+    prescribedBy: "Dr. Sarah Chen, MD",
+    pillsRemaining: 18,
+    totalPillsInRefill: 60,
+    refillThreshold: 10,
+    startDate: "2026-01-10",
+    active: true,
+  },
+  {
+    id: "med-2",
+    name: "Lisinopril",
+    dosage: "10 mg",
+    form: "tablet",
+    color: "#EC4899", // Rose/Pink
+    iconShape: "round",
+    scheduledTimes: ["08:00 AM"],
+    frequency: "Once daily (Morning)",
+    mealRelation: "anytime",
+    instructions: "Take every morning with a full glass of water. Sit up slowly to prevent dizziness.",
+    purpose: "Blood pressure regulation (Hypertension)",
+    prescribedBy: "Dr. Sarah Chen, MD",
+    pillsRemaining: 6, // Low inventory warning!
+    totalPillsInRefill: 30,
+    refillThreshold: 7,
+    startDate: "2026-02-01",
+    active: true,
+  },
+  {
+    id: "med-3",
+    name: "Atorvastatin Calcium",
+    dosage: "20 mg",
+    form: "tablet",
+    color: "#EAB308", // Yellow
+    iconShape: "round",
+    scheduledTimes: ["09:00 PM"],
+    frequency: "Once daily (Bedtime)",
+    mealRelation: "after_meal",
+    instructions: "Take at bedtime. Strictly avoid consuming grapefruit or grapefruit juice.",
+    purpose: "Cholesterol & cardiovascular protection",
+    prescribedBy: "Dr. Sarah Chen, MD",
+    pillsRemaining: 24,
+    totalPillsInRefill: 30,
+    refillThreshold: 7,
+    startDate: "2026-03-15",
+    active: true,
+  },
+  {
+    id: "med-4",
+    name: "Calcium Citrate + Vitamin D3",
+    dosage: "600 mg / 400 IU",
+    form: "capsule",
+    color: "#10B981", // Green
+    iconShape: "capsule",
+    scheduledTimes: ["01:00 PM"],
+    frequency: "Once daily (Lunch)",
+    mealRelation: "with_meal",
+    instructions: "Take with lunch to maximize calcium absorption.",
+    purpose: "Bone density and joint strength (Osteoarthritis)",
+    prescribedBy: "Dr. Marcus Vance, Orthopedic",
+    pillsRemaining: 40,
+    totalPillsInRefill: 60,
+    refillThreshold: 10,
+    startDate: "2026-04-01",
+    active: true,
+  },
+  {
+    id: "med-5",
+    name: "Paracetamol",
+    dosage: "500 mg",
+    form: "tablet",
+    color: "#8B5CF6", // Purple
+    iconShape: "round",
+    scheduledTimes: ["02:00 PM"],
+    frequency: "As needed (PRN)",
+    mealRelation: "after_meal",
+    instructions: "Take for joint pain flare-ups. Maximum 3 tablets in 24 hours.",
+    purpose: "Mild pain relief (Knee osteoarthritis)",
+    prescribedBy: "Dr. Marcus Vance, Orthopedic",
+    pillsRemaining: 15,
+    totalPillsInRefill: 30,
+    refillThreshold: 5,
+    startDate: "2026-05-10",
+    active: true,
+  },
+];
+
+export const initialAppointments: DoctorAppointment[] = [
+  {
+    id: "appt-1",
+    doctorName: "Dr. Sarah Chen, MD",
+    specialty: "Cardiology & Primary Care",
+    clinic: "Metro Health Cardiology Suite 402",
+    address: "742 Evergreen Medical Parkway, Seattle",
+    date: "2026-11-20",
+    time: "10:30 AM",
+    accompaniedBy: "David Pendelton (Son)",
+    notes: "Review 3-month blood pressure logs and adjust Lisinopril dosage if needed. Fasting blood glucose test report required.",
+    status: "upcoming",
+    preparationChecklist: [
+      "Fasting from midnight (water allowed)",
+      "Bring home blood pressure log notebook",
+      "Bring current pill organizer box",
+    ],
+  },
+  {
+    id: "appt-2",
+    doctorName: "Dr. Marcus Vance, MD",
+    specialty: "Orthopedic & Joint Wellness",
+    clinic: "Cascade Physical Health Clinic",
+    address: "105 Pine Grove Ave, Seattle",
+    date: "2026-11-27",
+    time: "02:15 PM",
+    accompaniedBy: "Clara Vance, RN (Caregiver)",
+    notes: "Follow-up check on right knee mobility and physical therapy progress.",
+    status: "upcoming",
+    preparationChecklist: [
+      "Wear comfortable walking shoes & loose trousers",
+      "Bring recent X-ray CD from October",
+    ],
+  },
+  {
+    id: "appt-3",
+    doctorName: "Dr. Allison Reed, OD",
+    specialty: "Ophthalmology & Diabetic Retinal Screening",
+    clinic: "Vision First Eye Specialists",
+    address: "310 Broad St, Seattle",
+    date: "2026-12-05",
+    time: "11:00 AM",
+    accompaniedBy: "David Pendelton (Son)",
+    notes: "Annual dilated diabetic eye exam.",
+    status: "upcoming",
+    preparationChecklist: [
+      "Bring sunglasses for post-dilation brightness",
+      "Do not drive immediately after appointment",
+    ],
+  },
+];
+
+export const initialAdherenceHistory: AdherenceRecord[] = [
+  {
+    id: "adh-1",
+    medicationId: "med-1",
+    medicationName: "Metformin HCl (500mg)",
+    scheduledTime: "08:00 AM",
+    date: "2026-11-15",
+    status: "taken",
+    takenAt: "08:14 AM",
+    loggedBy: "Grandpa Arthur (Senior)",
+    notes: "Taken with oatmeal and tea",
+  },
+  {
+    id: "adh-2",
+    medicationId: "med-2",
+    medicationName: "Lisinopril (10mg)",
+    scheduledTime: "08:00 AM",
+    date: "2026-11-15",
+    status: "taken",
+    takenAt: "08:15 AM",
+    loggedBy: "Grandpa Arthur (Senior)",
+  },
+  {
+    id: "adh-3",
+    medicationId: "med-4",
+    medicationName: "Calcium Citrate + D3",
+    scheduledTime: "01:00 PM",
+    date: "2026-11-15",
+    status: "pending",
+    loggedBy: "System",
+  },
+  {
+    id: "adh-4",
+    medicationId: "med-1",
+    medicationName: "Metformin HCl (500mg)",
+    scheduledTime: "08:00 PM",
+    date: "2026-11-15",
+    status: "pending",
+    loggedBy: "System",
+  },
+  {
+    id: "adh-5",
+    medicationId: "med-3",
+    medicationName: "Atorvastatin (20mg)",
+    scheduledTime: "09:00 PM",
+    date: "2026-11-15",
+    status: "pending",
+    loggedBy: "System",
+  },
+  // Yesterday's records
+  {
+    id: "adh-prev-1",
+    medicationId: "med-1",
+    medicationName: "Metformin HCl (500mg)",
+    scheduledTime: "08:00 AM",
+    date: "2026-11-14",
+    status: "taken",
+    takenAt: "08:20 AM",
+    loggedBy: "Clara Vance, RN (Caretaker)",
+  },
+  {
+    id: "adh-prev-2",
+    medicationId: "med-2",
+    medicationName: "Lisinopril (10mg)",
+    scheduledTime: "08:00 AM",
+    date: "2026-11-14",
+    status: "taken",
+    takenAt: "08:20 AM",
+    loggedBy: "Clara Vance, RN (Caretaker)",
+  },
+  {
+    id: "adh-prev-3",
+    medicationId: "med-4",
+    medicationName: "Calcium Citrate + D3",
+    scheduledTime: "01:00 PM",
+    date: "2026-11-14",
+    status: "taken",
+    takenAt: "01:25 PM",
+    loggedBy: "Grandpa Arthur (Senior)",
+  },
+  {
+    id: "adh-prev-4",
+    medicationId: "med-1",
+    medicationName: "Metformin HCl (500mg)",
+    scheduledTime: "08:00 PM",
+    date: "2026-11-14",
+    status: "taken",
+    takenAt: "08:05 PM",
+    loggedBy: "Grandpa Arthur (Senior)",
+  },
+  {
+    id: "adh-prev-5",
+    medicationId: "med-3",
+    medicationName: "Atorvastatin (20mg)",
+    scheduledTime: "09:00 PM",
+    date: "2026-11-14",
+    status: "skipped",
+    loggedBy: "David Pendelton (Family)",
+    skipReason: "Upset stomach in late evening",
+  },
+];
+
+export const initialEmailLogs: EmailLog[] = [
+  {
+    id: "email-1",
+    recipient: "david.pendelton@gmail.com",
+    subject: "⚠️ Missed Dose Alert: Lisinopril for Arthur Pendelton",
+    alertType: "missed_medication",
+    sentAt: "2026-11-13 09:30 AM",
+    status: "delivered",
+    bodyHtml: `
+      <div style="font-family: sans-serif; padding: 20px; border-left: 4px solid #EF4444; background: #FEF2F2;">
+        <h2 style="color: #991B1B; margin-top: 0;">SilverCare Priority Alert: Scheduled Medication Missed</h2>
+        <p>Hello David,</p>
+        <p>This automated alert is to notify you that <strong>Arthur Pendelton</strong> has not confirmed taking his <strong>Lisinopril (10mg)</strong> morning dose scheduled for <strong>08:00 AM</strong>.</p>
+        <p>Please check in with Arthur or Nurse Clara to verify his status.</p>
+        <hr style="border: 0; border-top: 1px solid #FECACA; margin: 15px 0;" />
+        <p style="font-size: 12px; color: #7F1D1D;">SilverCare AI Healthcare Monitoring • Family Emergency Notification System</p>
+      </div>
+    `,
+  },
+  {
+    id: "email-2",
+    recipient: "family.pendelton@example.com",
+    subject: "🩺 Doctor Appointment Reminder: Dr. Sarah Chen (Cardiology)",
+    alertType: "appointment_reminder",
+    sentAt: "2026-11-14 06:00 PM",
+    status: "delivered",
+    bodyHtml: `
+      <div style="font-family: sans-serif; padding: 20px; border-left: 4px solid #3B82F6; background: #EFF6FF;">
+        <h2 style="color: #1E40AF; margin-top: 0;">Upcoming Healthcare Appointment Notice</h2>
+        <p>Hello Pendelton Family,</p>
+        <p>Arthur has an upcoming consultation scheduled with <strong>Dr. Sarah Chen, MD</strong>:</p>
+        <ul>
+          <li><strong>Date & Time:</strong> November 20, 2026 at 10:30 AM</li>
+          <li><strong>Location:</strong> Metro Health Cardiology Suite 402</li>
+          <li><strong>Accompanied By:</strong> David Pendelton</li>
+          <li><strong>Preparation:</strong> Fasting blood glucose test report required.</li>
+        </ul>
+        <hr style="border: 0; border-top: 1px solid #BFDBFE; margin: 15px 0;" />
+        <p style="font-size: 12px; color: #1E3A8A;">SilverCare AI • Care Circle Shared Coordination</p>
+      </div>
+    `,
+  },
+];
