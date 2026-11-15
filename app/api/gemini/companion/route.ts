@@ -1,15 +1,28 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Medication, DoctorAppointment, ElderlyProfile, AdherenceRecord } from "@/lib/types";
+
+interface CompanionRequestBody {
+  query: string;
+  profile?: ElderlyProfile;
+  medications?: Medication[];
+  appointments?: DoctorAppointment[];
+  adherenceToday?: AdherenceRecord[];
+}
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: CompanionRequestBody = await request.json();
     const { query, profile, medications, appointments, adherenceToday } = body;
 
-    if (!query) {
-      return NextResponse.json({ error: "Query is required" }, { status: 400 });
+    if (!query || typeof query !== "string" || !query.trim()) {
+      return NextResponse.json(
+        { error: "Query string is required and must be non-empty." },
+        { status: 400 }
+      );
     }
 
+    const sanitizedQuery = query.slice(0, 500).trim();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey && apiKey.length > 5 && !apiKey.includes("YOUR_")) {
@@ -21,7 +34,7 @@ export async function POST(request: Request) {
 Patient Medical Info:
 - Conditions: ${profile?.chronicConditions?.join(", ") || "Type 2 Diabetes, Hypertension"}
 - Allergies: ${profile?.allergies?.join(", ") || "Penicillin"}
-- Active Medications: ${JSON.stringify(medications?.map((m: any) => ({ name: m.name, dose: m.dosage, time: m.scheduledTimes, instructions: m.instructions })))}
+- Active Medications: ${JSON.stringify(medications?.map((m: Medication) => ({ name: m.name, dose: m.dosage, time: m.scheduledTimes, instructions: m.instructions })))}
 - Upcoming Appointments: ${JSON.stringify(appointments?.slice(0, 3))}
 - Today's Adherence: ${JSON.stringify(adherenceToday)}
 
@@ -36,20 +49,27 @@ Rules for your response:
           contents: [
             {
               role: "user",
-              parts: [{ text: `${systemPrompt}\n\nPatient asks: "${query}"` }],
+              parts: [{ text: `${systemPrompt}\n\nPatient asks: "${sanitizedQuery}"` }],
             },
           ],
         });
 
         const reply = result.response.text();
-        return NextResponse.json({ reply, source: "gemini" });
+        return NextResponse.json(
+          { reply, source: "gemini" },
+          {
+            headers: {
+              "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            },
+          }
+        );
       } catch (geminiErr) {
         console.warn("Gemini call error, using smart healthcare assistant fallback:", geminiErr);
       }
     }
 
     // Intelligent healthcare assistant fallback
-    const lower = query.toLowerCase();
+    const lower = sanitizedQuery.toLowerCase();
     let reply = `Hello ${profile?.preferredName || "Grandpa Arthur"}! I am here to help you stay comfortable and healthy.`;
 
     if (lower.includes("morning") || lower.includes("breakfast")) {
@@ -73,7 +93,14 @@ Rules for your response:
       reply = `You are doing wonderfully with your healthcare routine today! You can ask me what medicines to take next, check your upcoming doctor visits, or request audio guidance anytime.`;
     }
 
-    return NextResponse.json({ reply, source: "smart-engine" });
+    return NextResponse.json(
+      { reply, source: "smart-engine" },
+      {
+        headers: {
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json(

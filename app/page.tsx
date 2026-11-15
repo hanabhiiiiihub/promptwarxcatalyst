@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   UserRole,
   ElderlyProfile,
   Medication,
   DoctorAppointment,
   AdherenceRecord,
+  HealthcareRoutine,
   CareCircleMember,
   EmailLog,
 } from "@/lib/types";
@@ -14,9 +16,11 @@ import { StorageService } from "@/lib/storage";
 import { speakText } from "@/lib/tts";
 import {
   generateMissedDoseEmail,
+  generateUpcomingDoseEmail,
   generateAppointmentEmail,
   generateDailyDigestEmail,
 } from "@/lib/email-service";
+import { runProactiveReminderChecks } from "@/lib/reminder-scheduler";
 import { Navbar } from "@/components/Navbar";
 import { SeniorView } from "@/components/SeniorView";
 import { CaretakerView } from "@/components/CaretakerView";
@@ -24,11 +28,25 @@ import { FamilyView } from "@/components/FamilyView";
 import { PasscodeModal } from "@/components/PasscodeModal";
 import { MedicationModal } from "@/components/MedicationModal";
 import { AppointmentModal } from "@/components/AppointmentModal";
-import { EmergencyModal } from "@/components/EmergencyModal";
-import { AiAssistantModal } from "@/components/AiAssistantModal";
-import { AiInteractionChecker } from "@/components/AiInteractionChecker";
-import { DoctorReportModal } from "@/components/DoctorReportModal";
 import { NotificationModal } from "@/components/NotificationModal";
+
+// Dynamic lazy imports for modal code splitting & faster bundle efficiency
+const EmergencyModal = dynamic(
+  () => import("@/components/EmergencyModal").then((mod) => mod.EmergencyModal),
+  { ssr: false }
+);
+const AiAssistantModal = dynamic(
+  () => import("@/components/AiAssistantModal").then((mod) => mod.AiAssistantModal),
+  { ssr: false }
+);
+const AiInteractionChecker = dynamic(
+  () => import("@/components/AiInteractionChecker").then((mod) => mod.AiInteractionChecker),
+  { ssr: false }
+);
+const DoctorReportModal = dynamic(
+  () => import("@/components/DoctorReportModal").then((mod) => mod.DoctorReportModal),
+  { ssr: false }
+);
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false);
@@ -41,6 +59,7 @@ export default function HomePage() {
   const [adherenceHistory, setAdherenceHistory] = useState<AdherenceRecord[]>(
     StorageService.getAdherenceHistory()
   );
+  const [routines, setRoutines] = useState<HealthcareRoutine[]>(StorageService.getRoutines());
   const [careCircle, setCareCircle] = useState<CareCircleMember[]>(StorageService.getMembers());
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>(StorageService.getEmailLogs());
 
@@ -65,201 +84,274 @@ export default function HomePage() {
     setMedications(StorageService.getMedications());
     setAppointments(StorageService.getAppointments());
     setAdherenceHistory(StorageService.getAdherenceHistory());
+    setRoutines(StorageService.getRoutines());
     setCareCircle(StorageService.getMembers());
     setEmailLogs(StorageService.getEmailLogs());
   }, []);
 
-  // Today's adherence records
   const todayStr = "2026-11-15";
-  const adherenceToday = adherenceHistory.filter((a) => a.date === todayStr);
+  const adherenceToday = useMemo(
+    () => adherenceHistory.filter((a) => a.date === todayStr),
+    [adherenceHistory, todayStr]
+  );
 
-  // Persistence updates
-  const updateMedications = (newMeds: Medication[]) => {
+  // Persistence helpers
+  const updateMedications = useCallback((newMeds: Medication[]) => {
     setMedications(newMeds);
     StorageService.saveMedications(newMeds);
-  };
+  }, []);
 
-  const updateAppointments = (newAppts: DoctorAppointment[]) => {
+  const updateAppointments = useCallback((newAppts: DoctorAppointment[]) => {
     setAppointments(newAppts);
     StorageService.saveAppointments(newAppts);
-  };
+  }, []);
 
-  const updateAdherence = (newAdh: AdherenceRecord[]) => {
+  const updateAdherence = useCallback((newAdh: AdherenceRecord[]) => {
     setAdherenceHistory(newAdh);
     StorageService.saveAdherenceHistory(newAdh);
-  };
+  }, []);
 
-  const updateEmailLogs = (newEmails: EmailLog[]) => {
+  const updateRoutines = useCallback((newRoutines: HealthcareRoutine[]) => {
+    setRoutines(newRoutines);
+    StorageService.saveRoutines(newRoutines);
+  }, []);
+
+  const updateEmailLogs = useCallback((newEmails: EmailLog[]) => {
     setEmailLogs(newEmails);
     StorageService.saveEmailLogs(newEmails);
-  };
+  }, []);
+
+  // Proactive background reminder scheduler
+  useEffect(() => {
+    if (!mounted) return;
+    const interval = setInterval(async () => {
+      const result = await runProactiveReminderChecks(
+        profile,
+        medications,
+        adherenceToday,
+        appointments
+      );
+      if (result.triggeredAlerts > 0) {
+        updateEmailLogs([...result.newEmailLogs, ...StorageService.getEmailLogs()]);
+      }
+    }, 120000); // Check every 2 minutes in background
+    return () => clearInterval(interval);
+  }, [mounted, profile, medications, adherenceToday, appointments, updateEmailLogs]);
 
   // Senior action: Mark Taken
-  const handleMarkTaken = (medId: string, scheduledTime: string) => {
-    const med = medications.find((m) => m.id === medId);
-    if (!med) return;
+  const handleMarkTaken = useCallback(
+    (medId: string, scheduledTime: string) => {
+      const med = medications.find((m) => m.id === medId);
+      if (!med) return;
 
-    // Decrement pill inventory
-    const updatedMeds = medications.map((m) =>
-      m.id === medId ? { ...m, pillsRemaining: Math.max(0, m.pillsRemaining - 1) } : m
-    );
-    updateMedications(updatedMeds);
+      const updatedMeds = medications.map((m) =>
+        m.id === medId ? { ...m, pillsRemaining: Math.max(0, m.pillsRemaining - 1) } : m
+      );
+      updateMedications(updatedMeds);
 
-    // Update adherence record
-    const existingIndex = adherenceHistory.findIndex(
-      (a) => a.medicationId === medId && a.scheduledTime === scheduledTime && a.date === todayStr
-    );
+      const existingIndex = adherenceHistory.findIndex(
+        (a) => a.medicationId === medId && a.scheduledTime === scheduledTime && a.date === todayStr
+      );
 
-    const nowFormatted = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const nowFormatted = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-    if (existingIndex >= 0) {
-      const updated = [...adherenceHistory];
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        status: "taken",
-        takenAt: nowFormatted,
-        loggedBy: `${profile.preferredName || "Grandpa Arthur"} (Senior)`,
-      };
-      updateAdherence(updated);
-    } else {
-      const newRec: AdherenceRecord = {
-        id: `adh-${Date.now()}`,
-        medicationId: medId,
-        medicationName: `${med.name} (${med.dosage})`,
-        scheduledTime,
-        date: todayStr,
-        status: "taken",
-        takenAt: nowFormatted,
-        loggedBy: `${profile.preferredName || "Grandpa Arthur"} (Senior)`,
-      };
-      updateAdherence([newRec, ...adherenceHistory]);
-    }
+      if (existingIndex >= 0) {
+        const updated = [...adherenceHistory];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          status: "taken",
+          takenAt: nowFormatted,
+          loggedBy: `${profile.preferredName || "Grandpa Arthur"} (Senior)`,
+        };
+        updateAdherence(updated);
+      } else {
+        const newRec: AdherenceRecord = {
+          id: `adh-${Date.now()}`,
+          medicationId: medId,
+          medicationName: `${med.name} (${med.dosage})`,
+          scheduledTime,
+          date: todayStr,
+          status: "taken",
+          takenAt: nowFormatted,
+          loggedBy: `${profile.preferredName || "Grandpa Arthur"} (Senior)`,
+        };
+        updateAdherence([newRec, ...adherenceHistory]);
+      }
 
-    speakText(`Wonderful job, Arthur! ${med.name} marked as taken.`);
-  };
+      speakText(`Wonderful job, Arthur! ${med.name} marked as taken.`);
+    },
+    [medications, adherenceHistory, profile, todayStr, updateMedications, updateAdherence]
+  );
 
   // Senior action: Snooze 15m
-  const handleSnooze = (medId: string, scheduledTime: string) => {
-    const med = medications.find((m) => m.id === medId);
-    if (!med) return;
+  const handleSnooze = useCallback(
+    (medId: string, scheduledTime: string) => {
+      const med = medications.find((m) => m.id === medId);
+      if (!med) return;
 
-    const existingIndex = adherenceHistory.findIndex(
-      (a) => a.medicationId === medId && a.scheduledTime === scheduledTime && a.date === todayStr
-    );
+      const existingIndex = adherenceHistory.findIndex(
+        (a) => a.medicationId === medId && a.scheduledTime === scheduledTime && a.date === todayStr
+      );
 
-    if (existingIndex >= 0) {
-      const updated = [...adherenceHistory];
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        status: "snoozed",
-      };
-      updateAdherence(updated);
-    }
+      if (existingIndex >= 0) {
+        const updated = [...adherenceHistory];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          status: "snoozed",
+        };
+        updateAdherence(updated);
+      }
 
-    speakText(`Dose snoozed for fifteen minutes. We will remind you shortly.`);
-  };
+      speakText(`Dose snoozed for fifteen minutes. We will remind you shortly.`);
+    },
+    [medications, adherenceHistory, todayStr, updateAdherence]
+  );
 
-  // Caretaker action: Update adherence
-  const handleUpdateAdherenceStatus = (
-    recordId: string,
-    status: "taken" | "skipped" | "snoozed",
-    skipReason?: string
-  ) => {
-    const updated = adherenceHistory.map((a) => {
-      if (a.id === recordId) {
-        return {
-          ...a,
-          status,
-          skipReason: status === "skipped" ? skipReason : undefined,
-          takenAt:
-            status === "taken"
+  // Toggle Healthcare Routine
+  const handleToggleRoutine = useCallback(
+    (routineId: string) => {
+      const updated = routines.map((r) => {
+        if (r.id === routineId) {
+          const nextCompleted = !r.completed;
+          if (nextCompleted) {
+            speakText(`Great work completing your ${r.title}!`);
+          }
+          return {
+            ...r,
+            completed: nextCompleted,
+            completedAt: nextCompleted
               ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               : undefined,
-          loggedBy: "Clara Vance, RN (Caretaker)",
-        };
-      }
-      return a;
-    });
-    updateAdherence(updated);
-  };
+          };
+        }
+        return r;
+      });
+      updateRoutines(updated);
+    },
+    [routines, updateRoutines]
+  );
+
+  // Caretaker action: Update adherence
+  const handleUpdateAdherenceStatus = useCallback(
+    (recordId: string, status: "taken" | "skipped" | "snoozed", skipReason?: string) => {
+      const updated = adherenceHistory.map((a) => {
+        if (a.id === recordId) {
+          return {
+            ...a,
+            status,
+            skipReason: status === "skipped" ? skipReason : undefined,
+            takenAt:
+              status === "taken"
+                ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : undefined,
+            loggedBy: "Clara Vance, RN (Caretaker)",
+          };
+        }
+        return a;
+      });
+      updateAdherence(updated);
+    },
+    [adherenceHistory, updateAdherence]
+  );
 
   // Add / Edit Medication
-  const handleSaveMedication = (med: Medication) => {
-    const exists = medications.some((m) => m.id === med.id);
-    const newMeds = exists ? medications.map((m) => (m.id === med.id ? med : m)) : [...medications, med];
-    updateMedications(newMeds);
-  };
+  const handleSaveMedication = useCallback(
+    (med: Medication) => {
+      const exists = medications.some((m) => m.id === med.id);
+      const newMeds = exists ? medications.map((m) => (m.id === med.id ? med : m)) : [...medications, med];
+      updateMedications(newMeds);
+    },
+    [medications, updateMedications]
+  );
 
-  const handleDeleteMedication = (medId: string) => {
-    const newMeds = medications.filter((m) => m.id !== medId);
-    updateMedications(newMeds);
-  };
+  const handleDeleteMedication = useCallback(
+    (medId: string) => {
+      const newMeds = medications.filter((m) => m.id !== medId);
+      updateMedications(newMeds);
+    },
+    [medications, updateMedications]
+  );
 
-  // Add / Delete Appointment
-  const handleSaveAppointment = (appt: DoctorAppointment) => {
-    updateAppointments([...appointments, appt]);
-  };
+  const handleSaveAppointment = useCallback(
+    (appt: DoctorAppointment) => {
+      updateAppointments([...appointments, appt]);
+    },
+    [appointments, updateAppointments]
+  );
 
-  const handleDeleteAppointment = (apptId: string) => {
-    updateAppointments(appointments.filter((a) => a.id !== apptId));
-  };
+  const handleDeleteAppointment = useCallback(
+    (apptId: string) => {
+      updateAppointments(appointments.filter((a) => a.id !== apptId));
+    },
+    [appointments, updateAppointments]
+  );
 
   // Proactive Email Dispatch
-  const handleSendProactiveEmail = async (
-    type: "missed_medication" | "appointment_reminder" | "daily_digest"
-  ) => {
-    let emailData: { subject: string; html: string };
+  const handleSendProactiveEmail = useCallback(
+    async (type: "missed_medication" | "upcoming_dose" | "appointment_reminder" | "daily_digest") => {
+      let emailData: { subject: string; html: string };
 
-    if (type === "missed_medication") {
-      emailData = generateMissedDoseEmail({
-        recipientName: "David & Clara",
-        patientName: profile.name,
-        medicationName: "Lisinopril",
-        dosage: "10 mg",
-        scheduledTime: "08:00 AM",
-      });
-    } else if (type === "appointment_reminder") {
-      const nextAppt = appointments[0];
-      emailData = generateAppointmentEmail({
-        recipientName: "Pendelton Family",
-        patientName: profile.name,
-        doctorName: nextAppt?.doctorName || "Dr. Sarah Chen",
-        appointmentDate: nextAppt?.date || "November 20, 2026",
-        appointmentTime: nextAppt?.time || "10:30 AM",
-        clinic: nextAppt?.clinic || "Metro Health Suite 402",
-        notes: nextAppt?.notes,
-      });
-    } else {
-      emailData = generateDailyDigestEmail({
-        recipientName: "David Pendelton",
-        patientName: profile.name,
-        adherencePercentage: 88,
-      });
-    }
-
-    try {
-      const res = await fetch("/api/reminders/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: profile.emailAlertPreferences.emailAddress,
-          subject: emailData.subject,
-          alertType: type,
-          bodyHtml: emailData.html,
-        }),
-      });
-      const result = await res.json();
-      if (result.log) {
-        updateEmailLogs([result.log, ...emailLogs]);
-        setIsNotificationOpen(true);
+      if (type === "missed_medication") {
+        emailData = generateMissedDoseEmail({
+          recipientName: "David & Clara",
+          patientName: profile.name,
+          medicationName: "Lisinopril",
+          dosage: "10 mg",
+          scheduledTime: "08:00 AM",
+        });
+      } else if (type === "upcoming_dose") {
+        emailData = generateUpcomingDoseEmail({
+          recipientName: profile.preferredName || profile.name,
+          patientName: profile.name,
+          medicationName: "Metformin HCl",
+          dosage: "500 mg",
+          scheduledTime: "08:00 PM",
+          notes: "Take with dinner and water.",
+        });
+      } else if (type === "appointment_reminder") {
+        const nextAppt = appointments[0];
+        emailData = generateAppointmentEmail({
+          recipientName: "Pendelton Family",
+          patientName: profile.name,
+          doctorName: nextAppt?.doctorName || "Dr. Sarah Chen",
+          appointmentDate: nextAppt?.date || "November 20, 2026",
+          appointmentTime: nextAppt?.time || "10:30 AM",
+          clinic: nextAppt?.clinic || "Metro Health Suite 402",
+          notes: nextAppt?.notes,
+        });
+      } else {
+        emailData = generateDailyDigestEmail({
+          recipientName: "David Pendelton",
+          patientName: profile.name,
+          adherencePercentage: 88,
+        });
       }
-    } catch (err) {
-      console.error("Failed to send email alert:", err);
-    }
-  };
+
+      try {
+        const res = await fetch("/api/reminders/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipient: profile.emailAlertPreferences.emailAddress,
+            subject: emailData.subject,
+            alertType: type,
+            bodyHtml: emailData.html,
+          }),
+        });
+        const result = await res.json();
+        if (result.log) {
+          updateEmailLogs([result.log, ...emailLogs]);
+          setIsNotificationOpen(true);
+        }
+      } catch (err) {
+        console.error("Failed to send email alert:", err);
+      }
+    },
+    [profile, appointments, emailLogs, updateEmailLogs]
+  );
 
   // Emergency Broadcast
-  const handleEmergencyBroadcast = async () => {
+  const handleEmergencyBroadcast = useCallback(async () => {
     const alertSubject = `🚨 EMERGENCY SOS ALERT: ${profile.name} requested immediate assistance`;
     const alertHtml = `
       <div style="font-family: sans-serif; padding: 24px; background: #FEF2F2; border-left: 6px solid #DC2626; border-radius: 8px;">
@@ -290,34 +382,36 @@ export default function HomePage() {
     } catch (err) {
       console.error("Emergency broadcast failed:", err);
     }
-  };
+  }, [profile, emailLogs, updateEmailLogs]);
 
-  // Ride volunteer assignment
-  const handleUpdateRideVolunteer = (apptId: string, volunteerName: string) => {
-    const updated = appointments.map((a) =>
-      a.id === apptId ? { ...a, accompaniedBy: volunteerName } : a
-    );
-    updateAppointments(updated);
-  };
+  const handleUpdateRideVolunteer = useCallback(
+    (apptId: string, volunteerName: string) => {
+      const updated = appointments.map((a) =>
+        a.id === apptId ? { ...a, accompaniedBy: volunteerName } : a
+      );
+      updateAppointments(updated);
+    },
+    [appointments, updateAppointments]
+  );
 
-  // Notification preference toggle
-  const handleToggleNotificationPref = (key: keyof ElderlyProfile["emailAlertPreferences"]) => {
-    const updated = {
-      ...profile,
-      emailAlertPreferences: {
-        ...profile.emailAlertPreferences,
-        [key]: !profile.emailAlertPreferences[key],
-      },
-    };
-    setProfile(updated);
-    StorageService.saveProfile(updated);
-  };
+  const handleToggleNotificationPref = useCallback(
+    (key: keyof ElderlyProfile["emailAlertPreferences"]) => {
+      const updated = {
+        ...profile,
+        emailAlertPreferences: {
+          ...profile.emailAlertPreferences,
+          [key]: !profile.emailAlertPreferences[key],
+        },
+      };
+      setProfile(updated);
+      StorageService.saveProfile(updated);
+    },
+    [profile]
+  );
 
-  const handleCycleFontSize = () => {
-    if (fontSize === "normal") setFontSize("large");
-    else if (fontSize === "large") setFontSize("xlarge");
-    else setFontSize("normal");
-  };
+  const handleCycleFontSize = useCallback(() => {
+    setFontSize((prev) => (prev === "normal" ? "large" : prev === "large" ? "xlarge" : "normal"));
+  }, []);
 
   if (!mounted) {
     return (
@@ -336,7 +430,6 @@ export default function HomePage() {
         highContrast ? "high-contrast bg-black text-yellow-300" : ""
       }`}
     >
-      {/* Accessible Navbar */}
       <Navbar
         currentRole={currentRole}
         profile={profile}
@@ -353,7 +446,6 @@ export default function HomePage() {
         onOpenNotifications={() => setIsNotificationOpen(true)}
       />
 
-      {/* Main Content View Switcher */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         {currentRole === "senior" && (
           <SeniorView
@@ -361,10 +453,12 @@ export default function HomePage() {
             medications={medications}
             adherenceToday={adherenceToday}
             appointments={appointments}
+            routines={routines}
             highContrast={highContrast}
             fontSize={fontSize}
             onMarkTaken={handleMarkTaken}
             onSnooze={handleSnooze}
+            onToggleRoutine={handleToggleRoutine}
             onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
             onOpenEmergencyModal={() => setIsEmergencyModalOpen(true)}
           />
@@ -408,7 +502,6 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Persistent Bottom Persona Bar for Evaluator Convenience */}
       <footer className="fixed bottom-0 inset-x-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-3 px-4 z-30 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2 text-slate-500 font-semibold">
@@ -461,7 +554,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* Interactive Modals */}
       <PasscodeModal
         isOpen={isPasscodeOpen}
         onClose={() => setIsPasscodeOpen(false)}
@@ -487,37 +579,45 @@ export default function HomePage() {
         onSave={handleSaveAppointment}
       />
 
-      <EmergencyModal
-        isOpen={isEmergencyModalOpen}
-        onClose={() => setIsEmergencyModalOpen(false)}
-        profile={profile}
-        careCircle={careCircle}
-        onTriggerEmergencyBroadcast={handleEmergencyBroadcast}
-      />
+      {isEmergencyModalOpen && (
+        <EmergencyModal
+          isOpen={isEmergencyModalOpen}
+          onClose={() => setIsEmergencyModalOpen(false)}
+          profile={profile}
+          careCircle={careCircle}
+          onTriggerEmergencyBroadcast={handleEmergencyBroadcast}
+        />
+      )}
 
-      <AiAssistantModal
-        isOpen={isAiAssistantOpen}
-        onClose={() => setIsAiAssistantOpen(false)}
-        profile={profile}
-        medications={medications}
-        appointments={appointments}
-        adherenceToday={adherenceToday}
-      />
+      {isAiAssistantOpen && (
+        <AiAssistantModal
+          isOpen={isAiAssistantOpen}
+          onClose={() => setIsAiAssistantOpen(false)}
+          profile={profile}
+          medications={medications}
+          appointments={appointments}
+          adherenceToday={adherenceToday}
+        />
+      )}
 
-      <AiInteractionChecker
-        isOpen={isInteractionCheckerOpen}
-        onClose={() => setIsInteractionCheckerOpen(false)}
-        medications={medications}
-      />
+      {isInteractionCheckerOpen && (
+        <AiInteractionChecker
+          isOpen={isInteractionCheckerOpen}
+          onClose={() => setIsInteractionCheckerOpen(false)}
+          medications={medications}
+        />
+      )}
 
-      <DoctorReportModal
-        isOpen={isDoctorReportOpen}
-        onClose={() => setIsDoctorReportOpen(false)}
-        profile={profile}
-        medications={medications}
-        adherenceHistory={adherenceHistory}
-        appointments={appointments}
-      />
+      {isDoctorReportOpen && (
+        <DoctorReportModal
+          isOpen={isDoctorReportOpen}
+          onClose={() => setIsDoctorReportOpen(false)}
+          profile={profile}
+          medications={medications}
+          adherenceHistory={adherenceHistory}
+          appointments={appointments}
+        />
+      )}
 
       <NotificationModal
         isOpen={isNotificationOpen}

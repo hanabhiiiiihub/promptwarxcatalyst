@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   generateMissedDoseEmail,
+  generateUpcomingDoseEmail,
   generateAppointmentEmail,
   generateDailyDigestEmail,
 } from "@/lib/email-service";
@@ -22,6 +23,23 @@ describe("Proactive Email Reminders & Notifications", () => {
     expect(email.html).toContain("10 mg");
     expect(email.html).toContain("08:00 AM");
     expect(email.html).toContain("Overdue");
+  });
+
+  it("should generate an advance notice for upcoming medication doses", () => {
+    const email = generateUpcomingDoseEmail({
+      recipientName: "Arthur Pendelton",
+      patientName: "Arthur Pendelton",
+      medicationName: "Metformin HCl",
+      dosage: "500 mg",
+      scheduledTime: "08:00 PM",
+      notes: "Take with dinner",
+    });
+
+    expect(email.subject).toContain("Upcoming Medication Dose");
+    expect(email.subject).toContain("Metformin HCl");
+    expect(email.html).toContain("Arthur Pendelton");
+    expect(email.html).toContain("08:00 PM");
+    expect(email.html).toContain("Take with dinner");
   });
 
   it("should generate a detailed doctor appointment reminder", () => {

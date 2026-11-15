@@ -1,5 +1,3 @@
-import { EmailLog } from "./types";
-
 export interface EmailTemplatePayload {
   recipientName: string;
   patientName: string;
@@ -14,6 +12,9 @@ export interface EmailTemplatePayload {
   adherencePercentage?: number;
 }
 
+/**
+ * Generates high-priority HTML email for missed medication doses.
+ */
 export function generateMissedDoseEmail(payload: EmailTemplatePayload): { subject: string; html: string } {
   const subject = `⚠️ Alert: Missed Medication - ${payload.medicationName} for ${payload.patientName}`;
   const html = `
@@ -64,6 +65,44 @@ export function generateMissedDoseEmail(payload: EmailTemplatePayload): { subjec
   return { subject, html };
 }
 
+/**
+ * Generates proactive upcoming dose reminder email (e.g. 30 min before schedule).
+ */
+export function generateUpcomingDoseEmail(payload: EmailTemplatePayload): { subject: string; html: string } {
+  const subject = `⏰ Upcoming Medication Dose: ${payload.medicationName} (${payload.dosage}) at ${payload.scheduledTime}`;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; color: #1E293B;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 6px solid #F59E0B;">
+          <div style="padding: 24px; background: #FEF3C7; border-bottom: 1px solid #FDE68A;">
+            <div style="font-size: 13px; font-weight: 700; color: #B45309; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Advance Routine Notice</div>
+            <h1 style="margin: 0; font-size: 22px; color: #92400E;">Upcoming Medication Scheduled</h1>
+          </div>
+          <div style="padding: 24px;">
+            <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hello ${payload.recipientName},</p>
+            <p style="font-size: 15px; line-height: 1.6; color: #334155;">
+              This is an advance notice that <strong>${payload.patientName}</strong> has an upcoming scheduled dose of <strong>${payload.medicationName} (${payload.dosage})</strong> at <strong>${payload.scheduledTime}</strong>.
+            </p>
+            <div style="background: #F8FAFC; border-radius: 8px; padding: 16px; margin: 20px 0; border: 1px solid #E2E8F0;">
+              <p style="margin: 0; font-size: 14px; color: #475569;">
+                <strong>Instruction:</strong> ${payload.notes || "Take with meals and a full glass of water as prescribed."}
+              </p>
+            </div>
+          </div>
+          <div style="background: #F8FAFC; padding: 16px 24px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #94A3B8; text-align: center;">
+            SilverCare AI Healthcare Ecosystem • Proactive Healthcare Routines
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+  return { subject, html };
+}
+
+/**
+ * Generates proactive doctor appointment reminder email.
+ */
 export function generateAppointmentEmail(payload: EmailTemplatePayload): { subject: string; html: string } {
   const subject = `🩺 Reminder: Upcoming Doctor Appointment with ${payload.doctorName}`;
   const html = `
@@ -114,6 +153,9 @@ export function generateAppointmentEmail(payload: EmailTemplatePayload): { subje
   return { subject, html };
 }
 
+/**
+ * Generates daily adherence & wellness digest.
+ */
 export function generateDailyDigestEmail(payload: EmailTemplatePayload): { subject: string; html: string } {
   const subject = `📊 Daily Care Digest: ${payload.adherencePercentage}% Medication Adherence for ${payload.patientName}`;
   const html = `

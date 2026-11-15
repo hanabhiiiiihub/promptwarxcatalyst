@@ -4,6 +4,7 @@ import {
   DoctorAppointment,
   CareCircleMember,
   AdherenceRecord,
+  HealthcareRoutine,
   EmailLog,
 } from "./types";
 import {
@@ -12,19 +13,18 @@ import {
   initialMedications,
   initialAppointments,
   initialAdherenceHistory,
+  initialHealthcareRoutines,
   initialEmailLogs,
 } from "./mock-data";
 
 const STORAGE_KEYS = {
-  PROFILE: "silvercare_profile_v1",
-  MEMBERS: "silvercare_members_v1",
-  MEDICATIONS: "silvercare_medications_v1",
-  APPOINTMENTS: "silvercare_appointments_v1",
-  ADHERENCE: "silvercare_adherence_v1",
-  EMAILS: "silvercare_emails_v1",
-  ACTIVE_ROLE: "silvercare_active_role_v1",
-  FONT_SCALE: "silvercare_font_scale_v1",
-  HIGH_CONTRAST: "silvercare_high_contrast_v1",
+  PROFILE: "silvercare_profile_v2",
+  MEMBERS: "silvercare_members_v2",
+  MEDICATIONS: "silvercare_medications_v2",
+  APPOINTMENTS: "silvercare_appointments_v2",
+  ADHERENCE: "silvercare_adherence_v2",
+  ROUTINES: "silvercare_routines_v2",
+  EMAILS: "silvercare_emails_v2",
 };
 
 export const StorageService = {
@@ -98,6 +98,21 @@ export const StorageService = {
     localStorage.setItem(STORAGE_KEYS.ADHERENCE, JSON.stringify(records));
   },
 
+  getRoutines(): HealthcareRoutine[] {
+    if (typeof window === "undefined") return initialHealthcareRoutines;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.ROUTINES);
+      return stored ? JSON.parse(stored) : initialHealthcareRoutines;
+    } catch {
+      return initialHealthcareRoutines;
+    }
+  },
+
+  saveRoutines(routines: HealthcareRoutine[]): void {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+  },
+
   getEmailLogs(): EmailLog[] {
     if (typeof window === "undefined") return initialEmailLogs;
     try {
@@ -111,15 +126,5 @@ export const StorageService = {
   saveEmailLogs(emails: EmailLog[]): void {
     if (typeof window === "undefined") return;
     localStorage.setItem(STORAGE_KEYS.EMAILS, JSON.stringify(emails));
-  },
-
-  resetToDefault(): void {
-    if (typeof window === "undefined") return;
-    localStorage.removeItem(STORAGE_KEYS.PROFILE);
-    localStorage.removeItem(STORAGE_KEYS.MEMBERS);
-    localStorage.removeItem(STORAGE_KEYS.MEDICATIONS);
-    localStorage.removeItem(STORAGE_KEYS.APPOINTMENTS);
-    localStorage.removeItem(STORAGE_KEYS.ADHERENCE);
-    localStorage.removeItem(STORAGE_KEYS.EMAILS);
   },
 };

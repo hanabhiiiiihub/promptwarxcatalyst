@@ -6,11 +6,7 @@ import {
   X,
   Bell,
   Mail,
-  Send,
   CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  Eye,
   Trash2,
   Sparkles,
 } from "lucide-react";
@@ -19,7 +15,7 @@ interface NotificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   emailLogs: EmailLog[];
-  onTriggerEmail: (type: "missed_medication" | "appointment_reminder" | "daily_digest") => void;
+  onTriggerEmail: (type: "missed_medication" | "upcoming_dose" | "appointment_reminder" | "daily_digest") => void;
   onClearLogs: () => void;
 }
 
@@ -65,20 +61,26 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         {/* Action Bar: Trigger Test Dispatches */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Dispatch Email Test:
+            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Proactive Email Engine:
           </span>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => onTriggerEmail("missed_medication")}
               className="px-2.5 py-1.5 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-bold text-xs hover:bg-red-200 transition"
             >
-              🚨 Missed Dose Alert
+              🚨 Missed Dose
+            </button>
+            <button
+              onClick={() => onTriggerEmail("upcoming_dose")}
+              className="px-2.5 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold text-xs hover:bg-amber-200 transition"
+            >
+              ⏰ Upcoming Dose
             </button>
             <button
               onClick={() => onTriggerEmail("appointment_reminder")}
               className="px-2.5 py-1.5 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold text-xs hover:bg-blue-200 transition"
             >
-              🩺 Appt Reminder
+              🩺 Doctor Appt
             </button>
             <button
               onClick={() => onTriggerEmail("daily_digest")}
@@ -93,7 +95,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {emailLogs.length === 0 ? (
             <div className="text-center py-12 text-slate-400 text-xs font-semibold">
-              No emails sent yet. Use the buttons above to trigger email notifications.
+              No emails sent yet. Use the buttons above to trigger proactive email alerts.
             </div>
           ) : (
             emailLogs.map((log) => (
@@ -108,6 +110,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                       className={`w-2.5 h-2.5 rounded-full ${
                         log.alertType === "missed_medication"
                           ? "bg-red-500"
+                          : log.alertType === "upcoming_dose"
+                          ? "bg-amber-500"
                           : log.alertType === "appointment_reminder"
                           ? "bg-blue-500"
                           : "bg-emerald-500"

@@ -20,17 +20,17 @@ export interface Medication {
   name: string;
   dosage: string;
   form: MedicationForm;
-  color: string; // Hex or tailwind color name
+  color: string;
   iconShape: "round" | "oval" | "capsule" | "bottle" | "drop";
-  scheduledTimes: string[]; // e.g. ["08:00 AM", "08:00 PM"]
-  frequency: string; // e.g. "Daily", "Twice daily", "As needed"
+  scheduledTimes: string[];
+  frequency: string;
   mealRelation: MealRelation;
   instructions: string;
   purpose: string;
   prescribedBy: string;
   pillsRemaining: number;
   totalPillsInRefill: number;
-  refillThreshold: number; // Alert if remaining <= threshold
+  refillThreshold: number;
   startDate: string;
   active: boolean;
 }
@@ -42,7 +42,7 @@ export interface AdherenceRecord {
   medicationId: string;
   medicationName: string;
   scheduledTime: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   status: AdherenceStatus;
   takenAt?: string;
   loggedBy: string;
@@ -56,12 +56,24 @@ export interface DoctorAppointment {
   specialty: string;
   clinic: string;
   address: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM AM/PM
+  date: string;
+  time: string;
   accompaniedBy: string;
   notes: string;
   status: "upcoming" | "completed" | "cancelled";
   preparationChecklist: string[];
+}
+
+export interface HealthcareRoutine {
+  id: string;
+  title: string;
+  category: "vitals" | "exercise" | "hydration" | "wellness";
+  scheduledTime: string;
+  frequency: string;
+  completed: boolean;
+  completedAt?: string;
+  targetMetric?: string;
+  notes?: string;
 }
 
 export interface ElderlyProfile {
@@ -83,6 +95,7 @@ export interface ElderlyProfile {
   emailAlertPreferences: {
     emailAddress: string;
     notifyOnMissedDose: boolean;
+    notifyOnUpcomingDose: boolean;
     notifyOnUpcomingAppointment: boolean;
     notifyDailyDigest: boolean;
   };

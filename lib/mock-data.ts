@@ -4,6 +4,7 @@ import {
   DoctorAppointment,
   CareCircleMember,
   AdherenceRecord,
+  HealthcareRoutine,
   EmailLog,
 } from "./types";
 
@@ -30,6 +31,7 @@ export const initialElderlyProfile: ElderlyProfile = {
   emailAlertPreferences: {
     emailAddress: "family.pendelton@example.com",
     notifyOnMissedDose: true,
+    notifyOnUpcomingDose: true,
     notifyOnUpcomingAppointment: true,
     notifyDailyDigest: true,
   },
@@ -78,13 +80,58 @@ export const initialCareCircle: CareCircleMember[] = [
   },
 ];
 
+export const initialHealthcareRoutines: HealthcareRoutine[] = [
+  {
+    id: "rtn-1",
+    title: "Morning Blood Pressure Log",
+    category: "vitals",
+    scheduledTime: "07:30 AM",
+    frequency: "Daily before breakfast",
+    completed: true,
+    completedAt: "07:35 AM",
+    targetMetric: "Target: < 130/80 mmHg (Logged: 124/78)",
+    notes: "Rest 5 minutes seated before reading.",
+  },
+  {
+    id: "rtn-2",
+    title: "Fasting Blood Glucose Check",
+    category: "vitals",
+    scheduledTime: "07:45 AM",
+    frequency: "Daily fasting",
+    completed: true,
+    completedAt: "07:46 AM",
+    targetMetric: "Target: 90 - 130 mg/dL (Logged: 108 mg/dL)",
+    notes: "Record in diabetes diary for Dr. Chen.",
+  },
+  {
+    id: "rtn-3",
+    title: "Midday Hydration & Water Glass",
+    category: "hydration",
+    scheduledTime: "12:00 PM",
+    frequency: "Daily at noon",
+    completed: false,
+    targetMetric: "Target: 500 mL fresh water",
+    notes: "Crucial for kidney filtration with metformin.",
+  },
+  {
+    id: "rtn-4",
+    title: "Gentle Knee Mobility & Physical Therapy",
+    category: "exercise",
+    scheduledTime: "04:30 PM",
+    frequency: "Daily afternoon",
+    completed: false,
+    targetMetric: "15 minutes seated leg extensions",
+    notes: "Prescribed by Dr. Vance for osteoarthritis.",
+  },
+];
+
 export const initialMedications: Medication[] = [
   {
     id: "med-1",
     name: "Metformin HCl",
     dosage: "500 mg",
     form: "tablet",
-    color: "#3B82F6", // Blue
+    color: "#3B82F6",
     iconShape: "oval",
     scheduledTimes: ["08:00 AM", "08:00 PM"],
     frequency: "Twice daily",
@@ -103,7 +150,7 @@ export const initialMedications: Medication[] = [
     name: "Lisinopril",
     dosage: "10 mg",
     form: "tablet",
-    color: "#EC4899", // Rose/Pink
+    color: "#EC4899",
     iconShape: "round",
     scheduledTimes: ["08:00 AM"],
     frequency: "Once daily (Morning)",
@@ -111,7 +158,7 @@ export const initialMedications: Medication[] = [
     instructions: "Take every morning with a full glass of water. Sit up slowly to prevent dizziness.",
     purpose: "Blood pressure regulation (Hypertension)",
     prescribedBy: "Dr. Sarah Chen, MD",
-    pillsRemaining: 6, // Low inventory warning!
+    pillsRemaining: 6,
     totalPillsInRefill: 30,
     refillThreshold: 7,
     startDate: "2026-02-01",
@@ -122,7 +169,7 @@ export const initialMedications: Medication[] = [
     name: "Atorvastatin Calcium",
     dosage: "20 mg",
     form: "tablet",
-    color: "#EAB308", // Yellow
+    color: "#EAB308",
     iconShape: "round",
     scheduledTimes: ["09:00 PM"],
     frequency: "Once daily (Bedtime)",
@@ -141,7 +188,7 @@ export const initialMedications: Medication[] = [
     name: "Calcium Citrate + Vitamin D3",
     dosage: "600 mg / 400 IU",
     form: "capsule",
-    color: "#10B981", // Green
+    color: "#10B981",
     iconShape: "capsule",
     scheduledTimes: ["01:00 PM"],
     frequency: "Once daily (Lunch)",
@@ -160,7 +207,7 @@ export const initialMedications: Medication[] = [
     name: "Paracetamol",
     dosage: "500 mg",
     form: "tablet",
-    color: "#8B5CF6", // Purple
+    color: "#8B5CF6",
     iconShape: "round",
     scheduledTimes: ["02:00 PM"],
     frequency: "As needed (PRN)",
@@ -277,7 +324,6 @@ export const initialAdherenceHistory: AdherenceRecord[] = [
     status: "pending",
     loggedBy: "System",
   },
-  // Yesterday's records
   {
     id: "adh-prev-1",
     medicationId: "med-1",
